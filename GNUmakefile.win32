@@ -1,0 +1,96 @@
+##################################################################
+# TODO: Title
+#
+# Inspired by zlib
+#		https://github.com/madler/zlib
+# Author: Grishankov Alexander
+#		https://github.com/Grishankov-Alexander
+##################################################################
+
+
+
+
+# Your library name and version
+LIBNAME=mylib
+LIBVERSION=1.0.0
+
+# Static and Shared library names
+STATICLIB:=$(LIBNAME).lib
+SHAREDLIB:=$(LIBNAME).dll
+IMPORTLIB:=$(LIBNAME)dll.lib
+
+# Project directories
+DIRSRC=src
+DIRINC=include
+DIRLIB=lib
+DIRBUILD=build
+DIRHELPER=helper
+
+# List of C Sources and corresponding objects
+SRC_C:=$(wildcard $(DIRSRC)/*.c)
+OBJS:=$(patsubst $(DIRSRC)/%.c,$(DIRBUILD)/%.obj,$(SRC_C))
+
+# Headers
+SRC_H:=$(wildcard $(DIRSRC)/*.h)
+
+# API headers
+SRC_H_API:=$(wildcard $(DIRINC)/*.h)
+
+# Libraries to link with
+LIBSFOREIGN:=$(wildcard $(DIRLIB)/*.lib)
+LIBSSYSTEM=
+
+# Programs for building
+CC=cl
+AR=lib
+LD=link
+
+# Flags for building
+CPPFLAGS:=/I$(DIRSRC) /I$(DIRINC)
+CFLAGS=/nologo /MD /Wall /O2 /std:c17
+WFLAGS=/D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE
+LDFLAGS:=/NOLOGO /DLL /LIBPATH:$(DIRLIB) /IMPLIB:$(DIRBUILD)/$(IMPORTLIB)
+LDLIBS=$(LIBSSYSTEM) $(LIBSFOREIGN)
+ARFLAGS=/NOLOGO
+
+all: static shared
+
+static: $(DIRBUILD)/$(STATICLIB)
+
+shared: $(DIRBUILD)/$(SHAREDLIB)
+
+$(DIRBUILD)/$(STATICLIB): $(OBJS)
+	$(AR) $(ARFLAGS) /OUT:$@ $^
+
+$(DIRBUILD)/$(SHAREDLIB): $(OBJS) $(LIBSFOREIGN)
+	$(LD) $(LDFLAGS) /OUT:$@ $(OBJS) $(LIBSSYSTEM) $(LIBSFOREIGN)
+
+# TODO
+install: all
+
+clean:
+	-DEL /Q /F $(DIRBUILD)\*
+	-DEL /Q /F deps.win32 finddeps.*
+
+# TODO
+uninstall:
+
+$(DIRBUILD)/%.obj: $(DIRSRC)/%.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) $(WFLAGS) /c /Fo$@ $<
+
+deps.win32: finddeps.exe $(SRC_C) $(SRC_H) $(SRC_H_API)
+ifeq "$(SRC_C)" ""
+	-@echo | set /P dummyvar="" > $@
+else
+	-@echo | set /P dummyvar="" > $@ & ^\
+	for %%s in ($(basename $(notdir $(SRC_C)))) do ^\
+	echo | set /P dummyvar="$(DIRBUILD)/%%s.obj:" >> $@ & ^\
+	.\$< $(DIRSRC)/%%s.c $(DIRSRC) $(DIRINC) >> $@ & ^\
+	echo. >> $@ & ^\
+	echo. >> $@
+endif
+
+finddeps.exe: $(DIRHELPER)/finddeps.c
+	$(CC) $(CFLAGS) $(WFLAGS) /Fe$@ $< > NUL
+
+include deps.win32

@@ -1,0 +1,151 @@
+##################################################################
+# TODO: Title
+#
+# Inspired by zlib
+#		https://github.com/madler/zlib
+# Author: Grishankov Alexander
+#		https://github.com/Grishankov-Alexander
+##################################################################
+
+
+
+
+# Your library name and version
+LIBNAME=mylib
+LIBVERSION=1.0.0
+
+# Static and Shared library names
+STATICLIB:=lib$(LIBNAME).a
+SHAREDLIB:=lib$(LIBNAME).so
+SHAREDLIBV:=$(SHAREDLIB).$(LIBVERSION)
+SHAREDLIBM:=$(SHAREDLIB).$(firstword $(subst ., ,$(LIBVERSION)))
+
+# Project directories
+DIRSRC=src
+DIRINC=include
+DIRLIB=lib
+DIRBUILD=build
+DIRTMP=tmp
+DIRHELPER=helper
+
+# List of C Sources and corresponding objects
+SRC_C:=$(wildcard $(DIRSRC)/*.c)
+OBJS:=$(patsubst $(DIRSRC)/%.c,$(DIRBUILD)/%.o,$(SRC_C))
+PIC_OBJS:=$(OBJS:.o=.lo)
+
+# Headers
+SRC_H:=$(wildcard $(DIRSRC)/*.h)
+
+# API headers
+SRC_H_API:=$(wildcard $(DIRINC)/*.h)
+
+# Libraries to link with
+LIBSTATICFOREIGN:=$(wildcard $(DIRLIB)/*.a)
+LIBSHAREDFOREIGN:=$(wildcard $(DIRLIB)/*.so)
+LIBSHAREDFOREIGN+=$(wildcard $(DIRLIB)/*.so.*)
+LIBSFOREIGN:=$(LIBSHAREDFOREIGN) $(LIBSTATICFOREIGN)
+LIBSSYSTEM=-lc -lm
+
+# Installation paths
+prefix=/usr/local
+exec_prefix=$(prefix)
+libdir=$(exec_prefix)/lib
+sharedlibdir=$(libdir)
+includedir=$(prefix)/include
+
+# Programs for building
+CC=gcc
+AR=ar
+RANLIB=ranlib
+LDCONFIG=ldconfig
+
+# Flags for building
+CPPFLAGS:=-I$(DIRSRC) -I$(DIRINC)
+CFLAGS=-O3 -std=c17 -Wall -pedantic
+SFLAGS:=$(CFLAGS) -fPIC
+LDFLAGS:=-L$(DIRLIB) \
+	-Wl,-rpath='$$ORIGIN:$$ORIGIN/$(DIRLIB):$$ORIGIN/../$(DIRLIB)' \
+	-Wl,-rpath-link='$(DIRLIB)'
+SLDFLAGS:=$(LDFLAGS) -shared -Wl,-soname,$(SHAREDLIBM)
+LDLIBS=$(LIBSSYSTEM) $(addprefix -l:,$(notdir $(LIBSHAREDFOREIGN))) $(LIBSTATICFOREIGN)
+ARFLAGS=rc
+
+all: static shared
+
+static: $(DIRBUILD)/$(STATICLIB)
+
+shared: $(DIRBUILD)/$(SHAREDLIBV)
+
+$(DIRBUILD)/$(STATICLIB): $(OBJS)
+	$(AR) $(ARFLAGS) $@ $^
+	-@($(RANLIB) $@ || true) 1>/dev/null 2>&1
+
+$(DIRBUILD)/$(SHAREDLIBV): $(PIC_OBJS) $(LIBSFOREIGN)
+	$(CC) $(SFLAGS) $(SLDFLAGS) -o $@ $(PIC_OBJS) $(LDLIBS)
+	rm -f $(@D)/$(SHAREDLIB) $(@D)/$(SHAREDLIBM)
+	ln -s $(@F) $(@D)/$(SHAREDLIB)
+	ln -s $(@F) $(@D)/$(SHAREDLIBM)
+	-@rmdir $(DIRTMP)
+
+install: all
+	-@if [ ! -d $(exec_prefix) ]; then mkdir -p $(exec_prefix); fi
+	-@if [ ! -d $(libdir) ]; then mkdir -p $(libdir); fi
+	-@if [ ! -d $(sharedlibdir) ]; then mkdir -p $(sharedlibdir); fi
+	-@if [ ! -d $(includedir)   ]; then mkdir -p $(includedir); fi
+	-@if test -n "$(SRC_H_API)"; then \
+		rm -f $(addprefix $(includedir)/,$(notdir $(SRC_H_API))); \
+	    cp $(SRC_H_API) $(includedir); \
+		echo "cp $(SRC_H_API) $(includedir)"; \
+	    chmod 644 $(addprefix $(includedir)/,$(notdir $(SRC_H_API))); \
+	fi
+	rm -f $(libdir)/$(STATICLIB);
+	cp $(DIRBUILD)/$(STATICLIB) $(libdir)
+	chmod 644 $(libdir)/$(STATICLIB)
+	-@($(RANLIB) $(libdir)/$(STATICLIB) || true) 1>/dev/null 2>&1
+	-@if test -n "$(DIRBUILD)/$(SHAREDLIBV)"; then \
+	    rm -f $(sharedlibdir)/$(SHAREDLIBV); \
+	    cp $(DIRBUILD)/$(SHAREDLIBV) $(sharedlibdir); \
+	    echo "cp $(DIRBUILD)/$(SHAREDLIBV) $(sharedlibdir)"; \
+	    chmod 755 $(sharedlibdir)/$(SHAREDLIBV); \
+	    echo "chmod 755 $(sharedlibdir)/$(SHAREDLIBV)"; \
+	    rm -f $(sharedlibdir)/$(SHAREDLIB) $(sharedlibdir)/$(SHAREDLIBM); \
+	    ln -s $(SHAREDLIBV) $(sharedlibdir)/$(SHAREDLIB); \
+	    ln -s $(SHAREDLIBV) $(sharedlibdir)/$(SHAREDLIBM); \
+	    ($(LDCONFIG) || true)  1>/dev/null 2>&1; \
+	fi
+
+clean:
+	-rm -f $(DIRBUILD)/* $(DIRBUILD)/*~ *~
+	-rm -rf $(DIRTMP)
+
+uninstall:
+	cd $(includedir) && rm -f $(notdir $(SRC_H_API))
+	cd $(libdir) && rm -f $(STATICLIB); \
+	cd $(sharedlibdir); \
+	if test -n "$(SHAREDLIBV)" -a -f $(SHAREDLIBV); then \
+	  rm -f $(SHAREDLIBV) $(SHAREDLIB) $(SHAREDLIBM); \
+	fi
+
+$(DIRBUILD)/%.o: $(DIRSRC)/%.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
+
+$(DIRBUILD)/%.lo: $(DIRSRC)/%.c
+	-@mkdir $(DIRTMP) 2>/dev/null || test -d $(DIRTMP)
+	$(CC) $(SFLAGS) $(CPPFLAGS) -c -o $(DIRTMP)/$(@F) $<
+	-@mv $(DIRTMP)/$(@F) $@
+
+deps.linux: finddeps $(SRC_C) $(SRC_H) $(SRC_H_API)
+	-@echo -n "" > $@
+	-@for src in $(basename $(notdir $(SRC_C))); do \
+	    deps=$$(./$< $(DIRSRC)/$$src.c $(DIRSRC) $(DIRINC)); \
+		echo -n "$(DIRBUILD)/$$src.o: " >> $@; \
+		echo $$deps >> $@; \
+		echo -n "$(DIRBUILD)/$$src.lo: " >> $@; \
+		echo $$deps >> $@; \
+		echo "" >> $@; \
+	done
+
+finddeps: $(DIRHELPER)/finddeps.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+include deps.linux
