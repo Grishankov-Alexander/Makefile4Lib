@@ -62,8 +62,7 @@ SRC_H_API:=$(wildcard $(DIRINC)/*.h)
 
 # Libraries to link with
 LIBSTATICFOREIGN:=$(wildcard $(DIRLIB)/*.a)
-LIBSHAREDFOREIGN:=$(wildcard $(DIRLIB)/*.so)
-LIBSHAREDFOREIGN+=$(wildcard $(DIRLIB)/*.so.*)
+LIBSHAREDFOREIGN:=$(wildcard $(DIRLIB)/*.so) $(wildcard $(DIRLIB)/*.so.*)
 LIBSFOREIGN:=$(LIBSHAREDFOREIGN) $(LIBSTATICFOREIGN)
 LIBSSYSTEM=-lc -lm
 
@@ -88,7 +87,7 @@ LDFLAGS:=-L$(DIRLIB) \
 	-Wl,-rpath='$$ORIGIN:$$ORIGIN/$(DIRLIB):$$ORIGIN/../$(DIRLIB)' \
 	-Wl,-rpath-link='$(DIRLIB)'
 SLDFLAGS:=$(LDFLAGS) -shared -Wl,-soname,$(SHAREDLIBM)
-LDLIBS=$(LIBSSYSTEM) $(addprefix -l:,$(notdir $(LIBSHAREDFOREIGN))) $(LIBSTATICFOREIGN)
+LDLIBS:=$(LIBSSYSTEM) $(addprefix -l:,$(notdir $(LIBSFOREIGN)))
 ARFLAGS=rc
 
 all: static shared
