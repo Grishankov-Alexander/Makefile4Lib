@@ -1,0 +1,101 @@
+What is Makefile4Lib ?
+    Makefile4Lib is an organized directory tree that contains
+    2 Makefiles and a helper-program so you can easily build
+    both static and shared (aka dynamic) C library projects on Windows or Linux.
+
+
+How should I structure my project ?
+    src     - *.c and *.h files.
+    lib     - *.a *.so *.so.* (Linux) or *.lib (Windows) files.
+        NOTE: If your library depends on other libraries.
+    include - *.h files.
+        NOTE: Place your library API headers here.
+
+
+How do I build libraries on Linux ?
+    1) Clone this repo into desired location or download it.
+        git clone https://github.com/Grishankov-Alexander/Makefile4Lib.git
+        cd ./Makefile4Lib
+    2) Structure your project according to the instructions above.
+    3) Install GNU make program if not installed.
+    4) Execute make command.
+        make -f GNUmakefile.linux
+    P.S. For all available options see "Usage, Variables and Targets" below.
+
+
+How do I build libraries on Windows ?
+    1) Clone this repo into desired location or download it.
+        git clone https://github.com/Grishankov-Alexander/Makefile4Lib.git
+    2) Structure your project according to the instructions above.
+    3) Install GNU make program.
+        INFO: https://community.chocolatey.org/packages/make
+        P.S. Native nmake was tried and it lacks a lot of required functionality.
+    4) Launch Developer command prompt for VS.
+        INFO: https://docs.microsoft.com/en-us/cpp/build/building-on-the-command-line
+    5) Change directory
+        cd ./Makefile4Lib
+    4) Execute make command.
+        make -f GNUmakefile.win32
+    P.S. For all available options see "Usage, Variables and Targets" below.
+
+
+What is helper/finddeps.c ?
+    finddeps.c is a source file that will be compiled into
+    a program that recursively finds header dependencies for your C source files.
+    This dependencies will be written into "deps.linux" or "deps.windows"
+    file which will be included into main GNUmakefile.
+    All this is done so that your project will be built correctly
+    if you modify your source files or add new headers and libraries.
+
+
+Usage, Variables and Targets
+    Usage:
+        make -f <MAKEFILE> [OPTIONS] [VARIABLE="VALUE" [VARIABLE="VALUE"]] [TARGET]
+
+    Examples:
+        1. make -f GNUmakefile.linux LIBNAME="myutils" LIBVERSION="2.1.1" all
+            Command above will create static library "build/libmyutils.a",
+            dynamic library "build/libmyutils.so.2.1.1" with soname "libmyutils.so.2"
+            and symlinks "build/libmyutils.so", "build/libmyutils.so.2" that will point to
+            "libmyutils.so.2.1.1".
+
+        2. make -f GNUmakefile.win32
+            Command above will create static library "build/mylib.lib",
+            DLL "build/mylib.dll" and it's import library "build/mylibdll.lib".
+
+    MAKEFILE
+        For Windows - GNUmakefile.win32
+        For Linux - GNUmakefile.linux
+
+    OPTIONS:
+        Options to GNU make itself.
+
+    TARGETS:
+        all - Default target. Build static and dynamic libraries into "build" directory.
+        intsall (Linux Only) - Build static and dynamic libraries and copy them to system PATH.
+            *.h files from "include" directory will be treated as your library API.
+        uninstall (Linux Only) - Remove libraries and headers from system PATH.
+        clean - Delete everything from the "build" directory.
+
+    VARIABLES:
+        LIBNAME - name of the library.
+            Default on Linux: mylib
+            Default on Windows: mylib
+        LIBVERSION (Linux only) - Full library version.
+            Default on Linux: 1.0.0
+        prefix (Linux only) - Installation path.
+            Default on Linux: /usr/local
+        CC - C compiler.
+            Default on Linux: gcc
+            Default on Windows: cl
+        CFLAGS - C compiler flags.
+            Default on Linux: -O3 -std=c17 -Wall -pedantic
+            Default on Windows: /nologo /MD /Wall /O2 /std:c17
+        WFLAGS - Macros that control warnings (Windows only).
+            Default on Windows: /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE
+        LIBSSYSTEM - System libraries to link with.
+            Default on Linux: -lc -lm
+                P.S. Standard C and math libraries
+            Default on Windows:
+                P.S. None by default.
+                Example: make -f GNUmakefile.win32 LIBSSYSTEM="d3d11.lib ncrypt.lib"
