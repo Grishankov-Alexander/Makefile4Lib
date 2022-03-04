@@ -137,6 +137,7 @@ install: all
 clean:
 	-rm -f $(DIRBUILD)/* $(DIRBUILD)/*~ *~
 	-rm -rf $(DIRTMP)
+	-rm -f deps.linux finddeps
 
 uninstall:
 	cd $(includedir) && rm -f $(notdir $(SRC_H_API))
